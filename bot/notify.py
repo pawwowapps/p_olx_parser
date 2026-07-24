@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import html
 import logging
 from dataclasses import replace
 
 from aiogram import Bot
+from aiogram.enums import ParseMode
 from aiogram.types import InputMediaPhoto
 
 from .config import Config
@@ -27,21 +29,23 @@ def _short_description(description: str) -> str:
 
 
 def _build_caption(label: str, ad: Ad) -> str:
-    header = f"🆕 [{label}] {ad.title}"
-    footer_parts = [ad.price]
+    header = f"🆕 [{html.escape(label)}] {html.escape(ad.title)}"
+    footer_parts = [html.escape(ad.price)]
     if ad.location_date:
-        footer_parts.append(ad.location_date)
-    footer_parts.append(ad.url)
+        footer_parts.append(html.escape(ad.location_date))
+    footer_parts.append(f'<a href="{html.escape(ad.url, quote=True)}">Посилання</a>')
     footer = "\n".join(footer_parts)
 
-    description = _short_description(ad.description or "")
-    # Опис обрізаємо так, щоб заголовок, ціна й посилання завжди лишались цілими.
-    available = MAX_CAPTION_LENGTH - len(header) - len(footer) - 4
-    if description and available > 0:
-        if len(description) > available:
-            description = description[: available - 1].rstrip() + "…"
-        return f"{header}\n\n{description}\n\n{footer}"
+    # Опис уже коротко обрізаний до цього рядка (_short_description), тож
+    # екрануємо вже готовий короткий текст — не ріжемо його ПІСЛЯ
+    # екранування, щоб випадково не розірвати HTML-сутність на кшталт &amp;.
+    description = html.escape(_short_description(ad.description or ""))
+    caption = f"{header}\n\n{description}\n\n{footer}" if description else f"{header}\n\n{footer}"
+    if len(caption) <= MAX_CAPTION_LENGTH:
+        return caption
 
+    # Дуже рідкісний випадок: навіть без опису не влазить у ліміт Telegram —
+    # відкидаємо опис повністю замість ризикованого обрізання розмітки.
     return f"{header}\n\n{footer}"
 
 
@@ -95,7 +99,11 @@ async def send_ad(bot: Bot, chat_id: int, label: str, ad: Ad, config: Config) ->
     if len(photos) >= 2:
         try:
             media = [
-                InputMediaPhoto(media=url, caption=caption if i == 0 else None)
+                InputMediaPhoto(
+                    media=url,
+                    caption=caption if i == 0 else None,
+                    parse_mode=ParseMode.HTML if i == 0 else None,
+                )
                 for i, url in enumerate(photos)
             ]
             await bot.send_media_group(chat_id, media=media)
@@ -105,9 +113,9 @@ async def send_ad(bot: Bot, chat_id: int, label: str, ad: Ad, config: Config) ->
 
     if photos:
         try:
-            await bot.send_photo(chat_id, photo=photos[0], caption=caption)
+            await bot.send_photo(chat_id, photo=photos[0], caption=caption, parse_mode=ParseMode.HTML)
             return
         except Exception as exc:
             logger.warning("Не вдалося надіслати фото %s: %s", photos[0], exc)
 
-    await bot.send_message(chat_id, caption)
+    await bot.send_message(chat_id, caption, parse_mode=ParseMode.HTML)
