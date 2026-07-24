@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 MAX_CAPTION_LENGTH = 1024
 MAX_DESCRIPTION_LINES = 3
-MAX_DESCRIPTION_CHARS = 240
+MAX_DESCRIPTION_CHARS = 168
 MAX_ALBUM_PHOTOS = 6
 
 
@@ -53,6 +53,26 @@ def oldest_first(ads: list[Ad]) -> list[Ad]:
     """Сортує оголошення так, щоб найновіше (за id) було останнім у списку —
     тоді при послідовній відправці воно опиниться останнім і в чаті."""
     return sorted(ads, key=_ad_sort_key)
+
+
+def select_new_ads(ads: list[Ad], seen_ids: set[str], limit: int) -> list[Ad]:
+    """Відбирає оголошення, які ще не надсилались, і сортує від найстарішого
+    до найновішого.
+
+    Крім банальної перевірки "не в seen_ids", відкидає й ті, чий id не
+    перевищує максимальний із уже надісланих. Це потрібно через рекламовані/
+    просунуті оголошення на OLX: вони можуть з'явитись у видачі пізніше, ніж
+    були створені, і без цієї перевірки "старе" оголошення могло б прийти
+    вже після того, як надіслано щось новіше — порядок найновіше-останнім
+    би зламався.
+    """
+    watermark = max((int(ad_id) for ad_id in seen_ids if ad_id.isdigit()), default=0)
+    fresh = [
+        ad
+        for ad in ads
+        if ad.ad_id not in seen_ids and (not ad.ad_id.isdigit() or int(ad.ad_id) > watermark)
+    ]
+    return oldest_first(fresh[:limit])
 
 
 async def send_ad(bot: Bot, chat_id: int, label: str, ad: Ad, config: Config) -> None:
