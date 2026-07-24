@@ -6,6 +6,7 @@ from aiogram.types import Message
 
 from ..config import Config
 from ..db.database import Database
+from ..notify import send_ad
 from ..olx.parser import fetch_ads
 
 router = Router(name="subscriptions")
@@ -91,6 +92,6 @@ async def cmd_check(message: Message, db: Database, config: Config) -> None:
         await db.mark_ads_seen(row["id"], [ad.ad_id for ad in ads])
 
         for ad in new_ads:
-            await message.answer(f"[{row['label']}] {ad.title}\n{ad.price}\n{ad.url}")
+            await send_ad(message.bot, message.chat.id, row["label"], ad, config)
 
     await message.answer("Перевірку завершено.")

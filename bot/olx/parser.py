@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import httpx
 from bs4 import BeautifulSoup
 
@@ -52,3 +54,18 @@ async def fetch_ads(search_url: str, timeout: float = 15.0) -> list[Ad]:
         )
 
     return ads
+
+
+async def fetch_ad_description(ad_url: str, timeout: float = 15.0) -> Optional[str]:
+    """Завантажує сторінку самого оголошення і повертає текст опису."""
+    async with httpx.AsyncClient(headers=HEADERS, timeout=timeout, follow_redirects=True) as client:
+        response = await client.get(ad_url)
+        response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "lxml")
+    description_tag = soup.select_one('div[data-testid="ad_description"] > div')
+    if not description_tag:
+        return None
+
+    text = description_tag.get_text("\n", strip=True)
+    return text or None

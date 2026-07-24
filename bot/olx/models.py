@@ -12,3 +12,4 @@ class Ad:
     location_date: str
     url: str
     image_url: Optional[str]
+    description: Optional[str] = None

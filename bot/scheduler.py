@@ -7,6 +7,7 @@ from aiogram import Bot
 
 from .config import Config
 from .db.database import Database
+from .notify import send_ad
 from .olx.parser import fetch_ads
 
 logger = logging.getLogger(__name__)
@@ -28,10 +29,7 @@ async def check_subscriptions(bot: Bot, db: Database, config: Config) -> None:
 
         for ad in new_ads:
             try:
-                await bot.send_message(
-                    row["chat_id"],
-                    f"🆕 [{row['label']}] {ad.title}\n{ad.price}\n{ad.location_date}\n{ad.url}",
-                )
+                await send_ad(bot, row["chat_id"], row["label"], ad, config)
                 await asyncio.sleep(0.5)
             except Exception as exc:
                 logger.warning("Не вдалося надіслати повідомлення %s: %s", row["chat_id"], exc)

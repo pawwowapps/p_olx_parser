@@ -14,7 +14,7 @@ services:
       - key: WEBHOOK_SECRET
         sync: false
       - key: CHECK_INTERVAL_MINUTES
-        value: "10"
+        value: "5"
       - key: MAX_ADS_PER_CHECK
         value: "10"
       - key: REQUEST_TIMEOUT
