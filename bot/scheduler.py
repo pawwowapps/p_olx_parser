@@ -34,4 +34,7 @@ async def check_subscriptions(bot: Bot, db: Database, config: Config) -> None:
             except Exception as exc:
                 logger.warning("Не вдалося надіслати повідомлення %s: %s", row["chat_id"], exc)
 
-        await db.mark_ads_seen(row["id"], [ad.ad_id for ad in ads])
+        # Позначаємо лише те, що реально обробили в цьому циклі — решту
+        # (понад max_ads_per_check) залишаємо непозначеною, щоб її підхопило
+        # наступне опитування, а не загубило назавжди.
+        await db.mark_ads_seen(row["id"], [ad.ad_id for ad in new_ads])

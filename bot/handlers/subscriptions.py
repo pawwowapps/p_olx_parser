@@ -130,7 +130,7 @@ async def cmd_check(message: Message, db: Database, config: Config) -> None:
 
         seen = await db.get_seen_ad_ids(row["id"])
         new_ads = select_new_ads(ads, seen, config.max_ads_per_check)
-        await db.mark_ads_seen(row["id"], [ad.ad_id for ad in ads])
+        await db.mark_ads_seen(row["id"], [ad.ad_id for ad in new_ads])
 
         for ad in new_ads:
             try:
