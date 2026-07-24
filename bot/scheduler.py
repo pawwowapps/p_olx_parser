@@ -7,7 +7,7 @@ from aiogram import Bot
 
 from .config import Config
 from .db.database import Database
-from .notify import send_ad
+from .notify import oldest_first, send_ad
 from .olx.parser import fetch_ads
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ async def check_subscriptions(bot: Bot, db: Database, config: Config) -> None:
 
         seen = await db.get_seen_ad_ids(row["id"])
         new_ads = [ad for ad in ads if ad.ad_id not in seen][: config.max_ads_per_check]
+        new_ads = oldest_first(new_ads)
 
         for ad in new_ads:
             try:

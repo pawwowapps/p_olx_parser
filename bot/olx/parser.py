@@ -87,16 +87,23 @@ async def fetch_ads(search_url: str, timeout: float = 15.0, max_pages: int = 5) 
     return ads
 
 
-async def fetch_ad_description(ad_url: str, timeout: float = 15.0) -> Optional[str]:
-    """Завантажує сторінку самого оголошення і повертає текст опису."""
+async def fetch_ad_details(ad_url: str, timeout: float = 15.0) -> tuple[Optional[str], list[str]]:
+    """Завантажує сторінку самого оголошення і повертає (опис, список фото)."""
     async with httpx.AsyncClient(headers=HEADERS, timeout=timeout, follow_redirects=True) as client:
         response = await client.get(ad_url)
         response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "lxml")
-    description_tag = soup.select_one('div[data-testid="ad_description"] > div')
-    if not description_tag:
-        return None
 
-    text = description_tag.get_text("\n", strip=True)
-    return text or None
+    description_tag = soup.select_one('div[data-testid="ad_description"] > div')
+    description = description_tag.get_text("\n", strip=True) if description_tag else None
+
+    photos: list[str] = []
+    seen_photos: set[str] = set()
+    for img in soup.select('div[data-testid="ad-photo"] img'):
+        src = img.get("src")
+        if src and src not in seen_photos:
+            seen_photos.add(src)
+            photos.append(src)
+
+    return description or None, photos

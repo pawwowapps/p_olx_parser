@@ -9,7 +9,7 @@ from aiogram.types import Message
 
 from ..config import Config
 from ..db.database import Database
-from ..notify import send_ad
+from ..notify import oldest_first, send_ad
 from ..olx.parser import fetch_ads
 
 router = Router(name="subscriptions")
@@ -101,7 +101,7 @@ async def cmd_preview(message: Message, db: Database, config: Config) -> None:
         await message.answer("За цим посиланням поки нічого не знайдено.")
         return
 
-    preview_ads = ads[:PREVIEW_COUNT]
+    preview_ads = oldest_first(ads[:PREVIEW_COUNT])
     await message.answer(
         f"Показую {len(preview_ads)} з {len(ads)} поточних оголошень "
         f"(без позначення «баченими» — на майбутні сповіщення це не впливає):"
@@ -130,6 +130,7 @@ async def cmd_check(message: Message, db: Database, config: Config) -> None:
 
         seen = await db.get_seen_ad_ids(row["id"])
         new_ads = [ad for ad in ads if ad.ad_id not in seen][: config.max_ads_per_check]
+        new_ads = oldest_first(new_ads)
         await db.mark_ads_seen(row["id"], [ad.ad_id for ad in ads])
 
         for ad in new_ads:

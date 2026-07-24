@@ -4,14 +4,26 @@ import logging
 from dataclasses import replace
 
 from aiogram import Bot
+from aiogram.types import InputMediaPhoto
 
 from .config import Config
 from .olx.models import Ad
-from .olx.parser import fetch_ad_description
+from .olx.parser import fetch_ad_details
 
 logger = logging.getLogger(__name__)
 
 MAX_CAPTION_LENGTH = 1024
+MAX_DESCRIPTION_LINES = 3
+MAX_DESCRIPTION_CHARS = 240
+MAX_ALBUM_PHOTOS = 6
+
+
+def _short_description(description: str) -> str:
+    lines = [line.strip() for line in description.splitlines() if line.strip()]
+    short = "\n".join(lines[:MAX_DESCRIPTION_LINES])
+    if len(short) > MAX_DESCRIPTION_CHARS:
+        short = short[:MAX_DESCRIPTION_CHARS].rstrip() + "…"
+    return short
 
 
 def _build_caption(label: str, ad: Ad) -> str:
@@ -22,7 +34,7 @@ def _build_caption(label: str, ad: Ad) -> str:
     footer_parts.append(ad.url)
     footer = "\n".join(footer_parts)
 
-    description = (ad.description or "").strip()
+    description = _short_description(ad.description or "")
     # Опис обрізаємо так, щоб заголовок, ціна й посилання завжди лишались цілими.
     available = MAX_CAPTION_LENGTH - len(header) - len(footer) - 4
     if description and available > 0:
@@ -33,24 +45,49 @@ def _build_caption(label: str, ad: Ad) -> str:
     return f"{header}\n\n{footer}"
 
 
+def _ad_sort_key(ad: Ad) -> int:
+    return int(ad.ad_id) if ad.ad_id.isdigit() else 0
+
+
+def oldest_first(ads: list[Ad]) -> list[Ad]:
+    """Сортує оголошення так, щоб найновіше (за id) було останнім у списку —
+    тоді при послідовній відправці воно опиниться останнім і в чаті."""
+    return sorted(ads, key=_ad_sort_key)
+
+
 async def send_ad(bot: Bot, chat_id: int, label: str, ad: Ad, config: Config) -> None:
-    """Надсилає користувачу картку оголошення: фото (якщо є), ціну, опис і посилання."""
+    """Надсилає користувачу картку оголошення: фото (альбом, якщо їх кілька), ціну, опис і посилання."""
     try:
-        description = await fetch_ad_description(ad.url, timeout=config.request_timeout)
+        description, photos = await fetch_ad_details(ad.url, timeout=config.request_timeout)
     except Exception as exc:
-        logger.warning("Не вдалося отримати опис %s: %s", ad.url, exc)
-        description = None
+        logger.warning("Не вдалося отримати деталі оголошення %s: %s", ad.url, exc)
+        description, photos = None, []
 
     if description:
         ad = replace(ad, description=description)
 
     caption = _build_caption(label, ad)
 
-    if ad.image_url:
+    if not photos and ad.image_url:
+        photos = [ad.image_url]
+    photos = photos[:MAX_ALBUM_PHOTOS]
+
+    if len(photos) >= 2:
         try:
-            await bot.send_photo(chat_id, photo=ad.image_url, caption=caption)
+            media = [
+                InputMediaPhoto(media=url, caption=caption if i == 0 else None)
+                for i, url in enumerate(photos)
+            ]
+            await bot.send_media_group(chat_id, media=media)
             return
         except Exception as exc:
-            logger.warning("Не вдалося надіслати фото %s: %s", ad.image_url, exc)
+            logger.warning("Не вдалося надіслати альбом %s: %s", ad.url, exc)
+
+    if photos:
+        try:
+            await bot.send_photo(chat_id, photo=photos[0], caption=caption)
+            return
+        except Exception as exc:
+            logger.warning("Не вдалося надіслати фото %s: %s", photos[0], exc)
 
     await bot.send_message(chat_id, caption)
