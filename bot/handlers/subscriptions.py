@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -10,6 +13,7 @@ from ..notify import send_ad
 from ..olx.parser import fetch_ads
 
 router = Router(name="subscriptions")
+logger = logging.getLogger(__name__)
 
 
 def _is_olx_url(url: str) -> bool:
@@ -92,6 +96,10 @@ async def cmd_check(message: Message, db: Database, config: Config) -> None:
         await db.mark_ads_seen(row["id"], [ad.ad_id for ad in ads])
 
         for ad in new_ads:
-            await send_ad(message.bot, message.chat.id, row["label"], ad, config)
+            try:
+                await send_ad(message.bot, message.chat.id, row["label"], ad, config)
+                await asyncio.sleep(0.5)
+            except Exception as exc:
+                logger.warning("Не вдалося надіслати повідомлення %s: %s", message.chat.id, exc)
 
     await message.answer("Перевірку завершено.")
