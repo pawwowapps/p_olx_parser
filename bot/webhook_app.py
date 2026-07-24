@@ -7,6 +7,7 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from aiohttp import web
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from .commands import set_bot_commands
 from .config import Config, load_config
 from .db.database import Database
 from .handlers import start, subscriptions
@@ -38,6 +39,7 @@ def create_app() -> web.Application:
     @dp.startup()
     async def on_startup(bot: Bot, db: Database, config: Config) -> None:
         await db.init()
+        await set_bot_commands(bot)
         await bot.set_webhook(
             url=f"{config.webhook_url}{WEBHOOK_PATH}",
             secret_token=config.webhook_secret,
