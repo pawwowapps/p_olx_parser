@@ -19,7 +19,7 @@ async def check_subscriptions(bot: Bot, db: Database, config: Config) -> None:
 
     for row in subscriptions:
         try:
-            ads = await fetch_ads(row["url"], timeout=config.request_timeout)
+            ads = await fetch_ads(row["url"], timeout=config.request_timeout, max_pages=config.max_pages)
         except Exception as exc:
             logger.warning("Не вдалося завантажити %s: %s", row["url"], exc)
             continue

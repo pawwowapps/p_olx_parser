@@ -17,6 +17,8 @@ services:
         value: "5"
       - key: MAX_ADS_PER_CHECK
         value: "10"
+      - key: MAX_PAGES
+        value: "5"
       - key: REQUEST_TIMEOUT
         value: "15"
       - key: DB_PATH

@@ -19,6 +19,7 @@ class Config:
     db_path: str
     request_timeout: float
     max_ads_per_check: int
+    max_pages: int
     webhook_url: Optional[str]
     webhook_secret: Optional[str]
     port: int
@@ -35,6 +36,7 @@ def load_config() -> Config:
         db_path=os.getenv("DB_PATH", str(BASE_DIR / "data" / "olx_bot.db")),
         request_timeout=float(os.getenv("REQUEST_TIMEOUT", "15")),
         max_ads_per_check=int(os.getenv("MAX_ADS_PER_CHECK", "10")),
+        max_pages=int(os.getenv("MAX_PAGES", "5")),
         # Публічна адреса сервісу для режиму webhook (Render підставляє
         # RENDER_EXTERNAL_URL автоматично, для локального polling не потрібно).
         webhook_url=os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL"),

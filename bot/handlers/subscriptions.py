@@ -36,7 +36,7 @@ async def cmd_add(message: Message, db: Database, config: Config) -> None:
         return
 
     try:
-        ads = await fetch_ads(url, timeout=config.request_timeout)
+        ads = await fetch_ads(url, timeout=config.request_timeout, max_pages=config.max_pages)
     except Exception:
         await message.answer("Не вдалося завантажити сторінку за цим посиланням. Перевірте URL.")
         return
@@ -87,7 +87,7 @@ async def cmd_check(message: Message, db: Database, config: Config) -> None:
     await message.answer("Перевіряю...")
     for row in subscriptions:
         try:
-            ads = await fetch_ads(row["url"], timeout=config.request_timeout)
+            ads = await fetch_ads(row["url"], timeout=config.request_timeout, max_pages=config.max_pages)
         except Exception:
             continue
 
