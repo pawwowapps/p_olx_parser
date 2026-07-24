@@ -15,6 +15,8 @@ from ..olx.parser import fetch_ads
 router = Router(name="subscriptions")
 logger = logging.getLogger(__name__)
 
+PREVIEW_COUNT = 3
+
 
 def _is_olx_url(url: str) -> bool:
     return url.startswith("http") and "olx." in url
@@ -75,6 +77,41 @@ async def cmd_remove(message: Message, db: Database) -> None:
 
     removed = await db.remove_subscription(message.chat.id, int(args[0]))
     await message.answer("Підписку видалено." if removed else "Підписку не знайдено.")
+
+
+@router.message(Command("preview"))
+async def cmd_preview(message: Message, db: Database, config: Config) -> None:
+    args = (message.text or "").split(maxsplit=1)[1:]
+    if not args or not args[0].isdigit():
+        await message.answer("Формат: /preview id. Побачити id можна через /list.")
+        return
+
+    row = await db.get_subscription(message.chat.id, int(args[0]))
+    if row is None:
+        await message.answer("Підписку не знайдено.")
+        return
+
+    try:
+        ads = await fetch_ads(row["url"], timeout=config.request_timeout, max_pages=config.max_pages)
+    except Exception:
+        await message.answer("Не вдалося завантажити сторінку за цим посиланням.")
+        return
+
+    if not ads:
+        await message.answer("За цим посиланням поки нічого не знайдено.")
+        return
+
+    preview_ads = ads[:PREVIEW_COUNT]
+    await message.answer(
+        f"Показую {len(preview_ads)} з {len(ads)} поточних оголошень "
+        f"(без позначення «баченими» — на майбутні сповіщення це не впливає):"
+    )
+    for ad in preview_ads:
+        try:
+            await send_ad(message.bot, message.chat.id, row["label"], ad, config)
+            await asyncio.sleep(0.5)
+        except Exception as exc:
+            logger.warning("Не вдалося надіслати прев'ю %s: %s", message.chat.id, exc)
 
 
 @router.message(Command("check"))

@@ -56,6 +56,15 @@ class Database:
             await db.commit()
             return cursor.rowcount > 0
 
+    async def get_subscription(self, chat_id: int, subscription_id: int) -> Optional[aiosqlite.Row]:
+        async with aiosqlite.connect(self._db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT id, label, url FROM subscriptions WHERE id = ? AND chat_id = ?",
+                (subscription_id, chat_id),
+            )
+            return await cursor.fetchone()
+
     async def list_subscriptions(self, chat_id: int) -> list[aiosqlite.Row]:
         async with aiosqlite.connect(self._db_path) as db:
             db.row_factory = aiosqlite.Row
