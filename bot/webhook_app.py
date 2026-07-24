@@ -53,8 +53,14 @@ def create_app() -> web.Application:
 
     @dp.shutdown()
     async def on_shutdown(bot: Bot) -> None:
+        # НЕ викликаємо bot.delete_webhook() тут: на безкоштовному Render
+        # інстанс засинає через бездіяльність і коректно завершує процес
+        # (звідси й цей shutdown-хук), а видалений вебхук означає, що
+        # Telegram більше нікуди не надсилає оновлення — і немає вхідного
+        # запиту, який міг би розбудити інстанс назад. Вебхук лишається
+        # зареєстрованим між рестартами, а on_startup при наступному
+        # старті просто перереєструє той самий URL.
         scheduler.shutdown(wait=False)
-        await bot.delete_webhook()
         await bot.session.close()
 
     app = web.Application()
